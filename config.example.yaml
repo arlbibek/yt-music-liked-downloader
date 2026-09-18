@@ -1,0 +1,23 @@
+# Copy this file to config.yaml and fill in your own paths/values.
+# config.yaml is gitignored — never commit your real cookies path or private playlist URLs.
+
+output_dir: ./music # default output directory for all playlists
+cookies: ./cookies.txt # path to Netscape-format cookies.txt
+audio_format: mp3 # mp3, m4a, flac, opus, etc.
+audio_quality: "192" # ffmpeg bitrate target
+player_client: tv # yt-dlp YouTube client (tv, web_safari, etc.)
+max_workers: 4 # concurrent download threads
+
+playlists:
+  # Your private Liked Songs playlist
+  - name: Liked Songs
+    url: https://music.youtube.com/playlist?list=LM
+
+  # Any other private playlist you own
+  - name: My Workout Mix
+    url: https://music.youtube.com/playlist?list=YOUR_PRIVATE_PLAYLIST_ID
+
+  # A public playlist — same handling, just a different URL
+  - name: Some Public Playlist
+    url: https://music.youtube.com/playlist?list=PUBLIC_PLAYLIST_ID
+    output_dir: ./music/public-playlist # optional: override the global output_dir for this one

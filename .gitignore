@@ -1,0 +1,11 @@
+config.yaml
+cookies.txt
+downloaded.txt
+music/
+*.mp3
+*.m4a
+*.flac
+*.opus
+*.webm
+__pycache__/
+*.pyc
