@@ -17,6 +17,8 @@ import yaml
 import yt_dlp
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
+
 DEFAULTS = {
     "output_dir": ".",
     "cookies": "./cookies.txt",
@@ -42,7 +44,7 @@ def load_config(path):
     return config
 
 
-def build_opts(output_dir, cookies, audio_format, audio_quality, player_client):
+def build_opts(output_dir, cookies, audio_format, audio_quality, player_client, archive_path):
     return {
         "format": "bestaudio/best",
         "outtmpl": os.path.join(output_dir, "%(title)s - %(artist,creator,uploader)s.%(ext)s"),
@@ -55,17 +57,29 @@ def build_opts(output_dir, cookies, audio_format, audio_quality, player_client):
         "js_runtimes": {"node": {}},
         "extractor_args": {"youtube": {"player_client": [player_client], "player_skip": ["webpage"]}},
         "ignoreerrors": True,
-        "download_archive": os.path.join(output_dir, "downloaded.txt"),
+        "download_archive": archive_path,
         "quiet": True,
         "no_warnings": True,
     }
 
 
-def get_video_entries(playlist_url, opts):
+def get_video_entries(playlist_url, opts, playlist_name):
     list_opts = {**opts, "extract_flat": True, "quiet": True}
     with yt_dlp.YoutubeDL(list_opts) as ydl:
         info = ydl.extract_info(playlist_url, download=False)
-    return [(entry["id"], entry.get("title", entry["id"])) for entry in info["entries"] if entry]
+
+    if info is None:
+        print(f"Could not read playlist '{playlist_name}' ({playlist_url}).", file=sys.stderr)
+        print("Likely causes: expired/invalid cookies, the playlist is private and", file=sys.stderr)
+        print("not accessible with the current account, or the URL/ID is wrong.", file=sys.stderr)
+        return []
+
+    entries = info.get("entries")
+    if not entries:
+        print(f"Playlist '{playlist_name}' returned no entries (empty or inaccessible).", file=sys.stderr)
+        return []
+
+    return [(entry["id"], entry.get("title", entry["id"])) for entry in entries if entry]
 
 
 def download_one(video_id, title, opts):
@@ -85,16 +99,27 @@ def run_playlist(playlist, config):
     max_workers = playlist.get("max_workers", config["max_workers"])
 
     os.makedirs(output_dir, exist_ok=True)
+
+    archive_dir = os.path.join(PROJECT_DIR, "archives")
+    os.makedirs(archive_dir, exist_ok=True)
+    safe_name = "".join(c if c.isalnum() or c in " -_" else "_" for c in name).strip()
+    archive_path = os.path.join(archive_dir, f"{safe_name}.txt")
+
     opts = build_opts(
         output_dir=output_dir,
         cookies=config["cookies"],
         audio_format=config["audio_format"],
         audio_quality=config["audio_quality"],
         player_client=config["player_client"],
+        archive_path=archive_path,
     )
 
     print(f"\n=== {name} ===")
-    entries = get_video_entries(url, opts)
+    entries = get_video_entries(url, opts, name)
+    if not entries:
+        print(f"Skipping '{name}' — no tracks to download.")
+        return
+
     print(f"Found {len(entries)} tracks. Downloading with {max_workers} threads into {output_dir}...")
 
     executor = ThreadPoolExecutor(max_workers=max_workers)
